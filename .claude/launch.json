@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "beast-arena",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["server.py"],
+      "port": 8767,
+      "autoPort": true
+    }
+  ]
+}

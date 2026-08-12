@@ -3,96 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🦖 巨兽之战 · Beast Arena</title>
+<title>🦖 巨兽之战 · Beast Arena — 生存挑战</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="game.css">
 </head>
 <body>
 <div id="particles"><canvas id="particles-canvas" style="position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.6;"></canvas></div>
-<div id="app">
-  <!-- Login overlay -->
-  <div id="login-overlay">
-    <div class="login-card">
-      <div class="login-header">
-        <div class="logo-icon">🦖</div>
-        <h1>巨兽之战</h1>
-        <p class="sub">跨越时空的顶级掠食者对决</p>
-      </div>
-      <div id="login-form">
-        <div class="login-tabs">
-          <button class="login-tab active" data-tab="login">登录</button>
-          <button class="login-tab" data-tab="register">注册</button>
-        </div>
-        <div id="login-panel" class="login-panel">
-          <input type="text" id="login-username" placeholder="用户名" autocomplete="username">
-          <input type="password" id="login-password" placeholder="密码" autocomplete="current-password">
-          <button class="btn-primary btn-block" id="login-btn">🔑 登录</button>
-          <p class="error-msg" id="login-error"></p>
-        </div>
-        <div id="register-panel" class="login-panel hidden">
-          <input type="text" id="reg-username" placeholder="用户名 (3-20字符)" autocomplete="username">
-          <input type="text" id="reg-display" placeholder="显示名称">
-          <input type="password" id="reg-password" placeholder="密码 (至少4字符)" autocomplete="new-password">
-          <input type="password" id="reg-password2" placeholder="确认密码">
-          <div class="emoji-picker-label">选择头像</div>
-          <div class="emoji-picker" id="reg-emoji-picker"></div>
-          <button class="btn-primary btn-block" id="register-btn">✨ 创建账号</button>
-          <p class="error-msg" id="reg-error"></p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Main UI (hidden until login) -->
-  <div id="main-ui" class="hidden">
-    <header id="app-header">
-      <div class="header-left">
-        <span class="logo-icon">🦖</span>
-        <h1>巨兽之战</h1>
-      </div>
-      <div class="header-center">
-        <nav id="main-nav">
-          <button class="nav-btn active" data-tab="arena">⚔️ 竞技场</button>
-          <button class="nav-btn" data-tab="guide">📖 图鉴</button>
-          <button class="nav-btn" data-tab="history">📜 战史</button>
-          <button class="nav-btn" data-tab="leaderboard">🏆 排行</button>
-          <button class="nav-btn" data-tab="teams">💾 我的编队</button>
-        </nav>
-      </div>
-      <div class="header-right" id="header-player"></div>
-    </header>
-
-    <main id="main-content">
-      <!-- Arena Tab -->
-      <section id="tab-arena" class="tab-panel">
-        <div id="arena-container"></div>
-      </section>
-
-      <!-- Guide Tab -->
-      <section id="tab-guide" class="tab-panel hidden">
-        <div id="guide-container"></div>
-      </section>
-
-      <!-- History Tab -->
-      <section id="tab-history" class="tab-panel hidden">
-        <div id="history-container"></div>
-      </section>
-
-      <!-- Leaderboard Tab -->
-      <section id="tab-leaderboard" class="tab-panel hidden">
-        <div id="leaderboard-container"></div>
-      </section>
-
-      <!-- My Teams Tab -->
-      <section id="tab-teams" class="tab-panel hidden">
-        <div id="teams-container"></div>
-      </section>
-    </main>
-
-    <!-- Battle modal -->
-    <div id="battle-modal-overlay" class="modal-overlay hidden"></div>
-  </div>
-</div>
-
+<div id="app"></div>
 <script src="game-data.js"></script>
 <script src="engine.js"></script>
 <script src="ui.js"></script>
