@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏀 BBALL CAREER SIMULATOR — Deep Strategy RPG</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        bg: { DEFAULT: '#0a0a0f', card: '#12121a', hover: '#1a1a28', border: '#1e1e32' },
+        accent: { DEFAULT: '#f59e0b', light: '#fbbf24', dark: '#d97706' },
+        cyber: { DEFAULT: '#06b6d4', light: '#22d3ee', dark: '#0891b2' },
+        nba: { blue: '#1d428a', red: '#c8102e', orange: '#f58426' }
+      }
+    }
+  }
+}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+* { box-sizing: border-box; }
+body { font-family: 'Inter', system-ui, sans-serif; background: #0a0a0f; color: #e2e8f0; margin: 0; min-height: 100vh; }
+.mono { font-family: 'JetBrains Mono', monospace; }
+.glass { background: rgba(18,18,26,0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.06); }
+.glass-hover:hover { background: rgba(26,26,40,0.9); border-color: rgba(245,158,11,0.3); transition: all 0.2s; }
+.glow-orange { box-shadow: 0 0 20px rgba(245,158,11,0.15), 0 0 40px rgba(245,158,11,0.05); }
+.glow-cyan { box-shadow: 0 0 20px rgba(6,182,212,0.15), 0 0 40px rgba(6,182,212,0.05); }
+.stat-bar { height: 6px; border-radius: 3px; transition: width 0.5s ease; }
+.stat-bar-bg { background: rgba(255,255,255,0.06); }
+.stat-bar-orange { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.stat-bar-cyan { background: linear-gradient(90deg, #0891b2, #06b6d4); }
+.stat-bar-red { background: linear-gradient(90deg, #c8102e, #f87171); }
+.stat-bar-green { background: linear-gradient(90deg, #059669, #34d399); }
+.tab-btn { position: relative; padding: 10px 18px; font-size: 0.875rem; font-weight: 500; color: #94a3b8; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
+.tab-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.03); }
+.tab-btn.active { color: #f59e0b; border-bottom-color: #f59e0b; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.pulse { animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+.fade-in { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.attr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.attr-chip { padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; text-align: center; }
+.attr-chip.legendary { background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+.attr-chip.elite { background: rgba(168,85,247,0.2); color: #c084fc; border: 1px solid rgba(168,85,247,0.3); }
+.attr-chip.great { background: rgba(6,182,212,0.2); color: #22d3ee; border: 1px solid rgba(6,182,212,0.3); }
+.attr-chip.good { background: rgba(34,197,94,0.2); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.attr-chip.avg { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
+.attr-chip.below { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0a0a0f; }
+::-webkit-scrollbar-thumb { background: #1e1e32; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #2a2a40; }
+canvas#radarChart { max-height: 400px; }
+</style>
+</head>
+<body class="overflow-x-hidden">
+
+<!-- HEADER -->
+<header class="glass border-b border-bg-border px-4 py-3 flex items-center justify-between flex-wrap gap-3">
+  <div class="flex items-center gap-3">
+    <span class="text-2xl">🏀</span>
+    <div>
+      <h1 class="text-lg font-bold text-white tracking-tight">BBALL CAREER SIMULATOR</h1>
+      <p class="text-xs text-gray-500 mono" id="header-sub">Deep Strategy RPG v2.0</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-4 flex-wrap" id="header-info">
+    <div class="text-right" id="player-quick-info" style="display:none">
+      <div class="text-sm font-semibold text-white" id="hdr-name">—</div>
+      <div class="text-xs text-gray-400"><span id="hdr-team">—</span> · S<span id="hdr-season">1</span> · <span id="hdr-phase">Regular Season</span></div>
+    </div>
+    <div class="flex gap-2" id="status-chips" style="display:none">
+      <span class="text-xs px-2 py-1 rounded-full glass" id="chip-fatigue" title="Fatigue">⚡ 0%</span>
+      <span class="text-xs px-2 py-1 rounded-full glass" id="chip-morale" title="Morale">😊 75</span>
+      <span class="text-xs px-2 py-1 rounded-full glass text-red-400" id="chip-injury" style="display:none" title="Injury">🏥 Injured</span>
+      <span class="text-xs px-2 py-1 rounded-full glass text-orange-400" id="chip-hot" style="display:none">🔥 Hot</span>
+      <span class="text-xs px-2 py-1 rounded-full glass text-blue-400" id="chip-cold" style="display:none">❄️ Cold</span>
+    </div>
+  </div>
+</header>
+
+<!-- TAB NAV -->
+<nav class="glass border-b border-bg-border px-2 overflow-x-auto flex flex-nowrap" id="tab-nav">
+  <button class="tab-btn active" data-tab="create">🎮 New Game</button>
+  <button class="tab-btn" data-tab="dashboard">📊 Dashboard</button>
+  <button class="tab-btn" data-tab="attributes">🧬 Attributes</button>
+  <button class="tab-btn" data-tab="season">📅 Season</button>
+  <button class="tab-btn" data-tab="game">🏟️ Sim Game</button>
+  <button class="tab-btn" data-tab="training">💪 Training</button>
+  <button class="tab-btn" data-tab="career">🏆 Career</button>
+  <button class="tab-btn" data-tab="offcourt">💼 Off-Court</button>
+  <button class="tab-btn" data-tab="league">🌐 League</button>
+  <button class="tab-btn" data-tab="saves">💾 Save/Load</button>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main class="max-w-7xl mx-auto px-4 py-4" id="main-content"></main>
+
+<script>
+// ============================================================
+// APP STATE
+// ============================================================
+const API = '/api';
+let state = {
+  playerId: localStorage.getItem('bball_player_id') || null,
+  player: null,
+  activeTab: 'create',
+  gameResults: [],
+  seasonState: null,
+  trainingPrograms: null,
+  teams: null,
+};
+
+// ============================================================
+// API HELPERS
+// ============================================================
+async function api(path, opts = {}) {
+  const url = API + path;
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json', ...opts.headers },
+    ...opts,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  try { state.teams = (await api('/teams')).teams; } catch(e) { console.warn('Teams load failed:', e); }
+  try { state.seasonState = await api('/season/state'); } catch(e) {}
+  try { state.trainingPrograms = await api('/training/programs'); } catch(e) {}
+
+  if (state.playerId) {
+    try {
+      const data = await api(`/player/${state.playerId}`);
+      state.player = data.player;
+    } catch(e) {
+      console.warn('Player load failed:', e);
+      state.playerId = null;
+      localStorage.removeItem('bball_player_id');
+    }
+  }
+
+  if (state.player) {
+    switchTab('dashboard');
+  } else {
+    switchTab('create');
+  }
+
+  // Tab click handlers
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+}
+
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`[data-tab="${tab}"]`);
+  if (btn) btn.classList.add('active');
+
+  if (tab !== 'create' && !state.player) {
+    switchTab('create');
+    return;
+  }
+
+  updateHeader();
+  renderTab(tab);
+}
+
+function updateHeader() {
+  const info = document.getElementById('player-quick-info');
+  const chips = document.getElementById('status-chips');
+  if (state.player) {
+    info.style.display = '';
+    document.getElementById('hdr-name').textContent = state.player.name;
+    document.getElementById('hdr-team').textContent = state.player.team_name || '—';
+    document.getElementById('hdr-season').textContent = state.seasonState?.current_season || 1;
+    document.getElementById('hdr-phase').textContent = (state.seasonState?.current_phase || 'regular_season').replace('_', ' ');
+    chips.style.display = '';
+    document.getElementById('chip-fatigue').textContent = `⚡ ${Math.round(state.player.fatigue)}%`;
+    document.getElementById('chip-morale').textContent = `😊 ${state.player.morale}`;
+    document.getElementById('chip-injury').style.display = state.player.injury_status ? '' : 'none';
+    if (state.player.injury_status) document.getElementById('chip-injury').textContent = `🏥 ${state.player.injury_status}`;
+    document.getElementById('chip-hot').style.display = state.player.hot_streak > 0 ? '' : 'none';
+    document.getElementById('chip-cold').style.display = state.player.cold_streak < 0 ? '' : 'none';
+  } else {
+    info.style.display = 'none';
+    chips.style.display = 'none';
+  }
+}
+
+// ============================================================
+// TAB RENDERERS
+// ============================================================
+function renderTab(tab) {
+  const main = document.getElementById('main-content');
+  main.innerHTML = '';
+  main.classList.add('fade-in');
+
+  switch(tab) {
+    case 'create': renderCreate(main); break;
+    case 'dashboard': renderDashboard(main); break;
+    case 'attributes': renderAttributes(main); break;
+    case 'season': renderSeason(main); break;
+    case 'game': renderGame(main); break;
+    case 'training': renderTraining(main); break;
+    case 'career': renderCareer(main); break;
+    case 'offcourt': renderOffCourt(main); break;
+    case 'league': renderLeague(main); break;
+    case 'saves': renderSaves(main); break;
+  }
+}
+
+// ─── CREATE PLAYER ───
+function renderCreate(main) {
+  main.innerHTML = `
+    <div class="max-w-2xl mx-auto mt-8">
+      <div class="glass rounded-2xl p-8 glow-orange">
+        <div class="text-center mb-8">
+          <span class="text-6xl">🏀</span>
+          <h2 class="text-2xl font-bold mt-4">Create Your Player</h2>
+          <p class="text-gray-400 text-sm mt-1">Define your basketball destiny. Choose wisely — your static physicals are permanent.</p>
+        </div>
+        <form id="create-form" class="space-y-5">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Player Name</label>
+            <input type="text" id="cf-name" required placeholder="e.g. Victor Storm" class="w-full bg-bg border border-bg-border rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:border-accent focus:outline-none transition">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Position</label>
+            <div class="grid grid-cols-5 gap-2">
+              ${['PG','SG','SF','PF','C'].map((pos,i) => `
+                <label class="glass-hover glass rounded-lg p-3 text-center cursor-pointer has-[:checked]:border-accent has-[:checked]:bg-accent/10 border border-transparent transition">
+                  <input type="radio" name="cf-pos" value="${pos}" ${i===0?'checked':''} class="hidden">
+                  <span class="text-lg font-bold text-white">${pos}</span>
+                  <span class="block text-xs text-gray-500 mt-1">${['Point Guard','Shooting Guard','Small Forward','Power Forward','Center'][i]}</span>
+                </label>
+              `).join('')}
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Age <span class="text-gray-500">(19-23)</span></label>
+            <input type="number" id="cf-age" min="19" max="23" value="19" class="w-full bg-bg border border-bg-border rounded-lg px-4 py-3 text-white focus:border-accent focus:outline-none transition">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Starting Team <span class="text-gray-500">(0 = random)</span></label>
+            <select id="cf-team" class="w-full bg-bg border border-bg-border rounded-lg px-4 py-3 text-white focus:border-accent focus:outline-none transition">
+              <option value="0">🎲 Random Team</option>
+              ${state.teams ? Object.entries(state.teams).map(([id,t]) => `<option value="${id}">${t.name}</option>`).join('') : ''}
+            </select>
+          </div>
+          <button type="submit" class="w-full bg-accent hover:bg-amber-500 text-black font-bold py-3.5 rounded-lg transition text-lg">
+            🏀 Begin Your Journey
+          </button>
+        </form>
+        ${state.player ? `<div class="mt-6 pt-4 border-t border-bg-border text-center">
+          <p class="text-gray-400 text-sm mb-2">Continue existing career:</p>
+          <button onclick="switchTab('dashboard')" class="text-accent hover:underline font-semibold">${state.player.name} — S${state.seasonState?.current_season||1}</button>
+        </div>` : ''}
+      </div>
+    </div>`;
+
+  document.getElementById('create-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Creating...';
+    try {
+      const name = document.getElementById('cf-name').value.trim();
+      const pos = document.querySelector('input[name="cf-pos"]:checked').value;
+      const age = parseInt(document.getElementById('cf-age').value);
+      const teamId = parseInt(document.getElementById('cf-team').value);
+      if (!name) throw new Error('Name required');
+      const data = await api('/player/create', {
+        method: 'POST',
+        body: JSON.stringify({ name, position: pos, age, team_id: teamId }),
+      });
+      state.playerId = data.player_id;
+      state.player = data.player;
+      localStorage.setItem('bball_player_id', state.playerId);
+      await refreshState();
+      switchTab('dashboard');
+    } catch(err) {
+      alert('Error: ' + err.message);
+      btn.disabled = false; btn.textContent = '🏀 Begin Your Journey';
+    }
+  });
+}
+
+// ─── DASHBOARD ───
+async function renderDashboard(main) {
+  if (!state.player) return;
+  await refreshPlayer();
+  const p = state.player;
+  const ss = state.seasonState || {};
+
+  // Quick season stats
+  let seasonStats = null;
+  try { seasonStats = await api(`/player/${state.playerId}/season-stats`); } catch(e) {}
+
+  main.innerHTML = `
+    <div class="space-y-5">
+      <!-- Welcome Card -->
+      <div class="glass rounded-2xl p-6 glow-orange">
+        <div class="flex items-start justify-between flex-wrap gap-4">
+          <div>
+            <p class="text-gray-400 text-xs mono uppercase tracking-wider">${p.team_name} · ${p.position} · #${p.jersey_number || '—'}</p>
+            <h2 class="text-3xl font-black text-white mt-1">${p.name}</h2>
+            <div class="flex gap-3 mt-2 flex-wrap">
+              <span class="text-sm glass rounded-full px-3 py-1">Age ${p.age}</span>
+              <span class="text-sm glass rounded-full px-3 py-1">${p.height}m / ${p.weight}kg</span>
+              <span class="text-sm glass rounded-full px-3 py-1">Year ${p.experience + 1}</span>
+              <span class="text-sm rounded-full px-3 py-1" style="background:rgba(245,158,11,0.2);color:#fbbf24">${p.role || 'Two-Way Wing'}</span>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-4 text-center">
+            <div class="glass rounded-xl p-3 min-w-[80px]">
+              <div class="text-2xl font-black text-accent">${seasonStats?.ppg || '—'}</div>
+              <div class="text-xs text-gray-500">PPG</div>
+            </div>
+            <div class="glass rounded-xl p-3 min-w-[80px]">
+              <div class="text-2xl font-black text-cyber">${seasonStats?.rpg || '—'}</div>
+              <div class="text-xs text-gray-500">RPG</div>
+            </div>
+            <div class="glass rounded-xl p-3 min-w-[80px]">
+              <div class="text-2xl font-black text-purple-400">${seasonStats?.apg || '—'}</div>
+              <div class="text-xs text-gray-500">APG</div>
+            </div>
+          </div>
+        </div>
+        <!-- Status Meters -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
+          ${statusMeter('Fatigue', p.fatigue, 100, 'orange', '⚡')}
+          ${statusMeter('Morale', p.morale, 100, 'green', '😊')}
+          ${statusMeter('Injury Risk', p.injury_risk, 100, 'red', '🩹')}
+          ${statusMeter('Clout', p.clout, 100, 'cyan', '👑')}
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <button onclick="switchTab('game')" class="glass glass-hover rounded-xl p-4 text-center">
+          <span class="text-2xl">🏟️</span>
+          <p class="text-sm font-semibold mt-1">Sim Game</p>
+        </button>
+        <button onclick="switchTab('attributes')" class="glass glass-hover rounded-xl p-4 text-center">
+          <span class="text-2xl">🧬</span>
+          <p class="text-sm font-semibold mt-1">Attributes</p>
+        </button>
+        <button onclick="switchTab('season')" class="glass glass-hover rounded-xl p-4 text-center">
+          <span class="text-2xl">📅</span>
+          <p class="text-sm font-semibold mt-1">Season</p>
+        </button>
+        <button onclick="switchTab('career')" class="glass glass-hover rounded-xl p-4 text-center">
+          <span class="text-2xl">🏆</span>
+          <p class="text-sm font-semibold mt-1">Career</p>
+        </button>
+      </div>
+
+      <!-- Season Progress -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">📊 Season Progress (S${ss.current_season || 1})</h3>
+        <div class="stat-bar-bg rounded-full h-3 overflow-hidden mb-2">
+          <div class="stat-bar-orange h-full transition-all" style="width:${((seasonStats?.games || 0) / 82 * 100).toFixed(1)}%"></div>
+        </div>
+        <div class="flex justify-between text-xs text-gray-500">
+          <span>${seasonStats?.games || 0} / 82 games</span>
+          <span>Phase: ${(ss.current_phase || 'regular').replace('_',' ')}</span>
+          <span>Record: ${seasonStats?.team_wins || 0}-${seasonStats?.team_losses || 0}</span>
+        </div>
+      </div>
+
+      <!-- Recent Games -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">🎮 Recent Games</h3>
+        <div id="recent-games">Loading...</div>
+      </div>
+    </div>`;
+
+  // Load recent games
+  try {
+    const logs = await api(`/game/logs/${state.playerId}?limit=5`);
+    const html = logs.games.length ? logs.games.map(g => `
+      <div class="flex items-center gap-3 py-2 border-b border-bg-border text-sm">
+        <span class="w-8 font-bold ${g.result === 'W' ? 'text-green-400' : 'text-red-400'}">${g.result}</span>
+        <span class="flex-1">vs ${state.teams?.[g.opponent_team_id]?.name || 'Team '+g.opponent_team_id}</span>
+        <span class="mono text-white font-semibold w-8 text-right">${g.pts}</span>
+        <span class="text-gray-500 w-8 text-right">${g.reb}r</span>
+        <span class="text-gray-500 w-8 text-right">${g.ast}a</span>
+        <span class="text-gray-600 mono text-xs w-20 text-right">${g.minutes}min</span>
+      </div>
+    `).join('') : '<p class="text-gray-500 text-sm">No games played yet. Go sim a game!</p>';
+    document.getElementById('recent-games').innerHTML = html;
+  } catch(e) { document.getElementById('recent-games').innerHTML = '<p class="text-gray-500">Error loading games</p>'; }
+}
+
+function statusMeter(label, value, max, color, icon) {
+  const pct = Math.round(value / max * 100);
+  const barClass = color === 'orange' ? 'stat-bar-orange' : color === 'green' ? 'stat-bar-green' : color === 'red' ? 'stat-bar-red' : 'stat-bar-cyan';
+  return `<div>
+    <div class="flex justify-between text-xs mb-1"><span class="text-gray-400">${icon} ${label}</span><span class="mono text-gray-300">${Math.round(value)}</span></div>
+    <div class="stat-bar-bg"><div class="stat-bar ${barClass}" style="width:${pct}%"></div></div>
+  </div>`;
+}
+
+// ─── ATTRIBUTES ───
+async function renderAttributes(main) {
+  if (!state.player) return;
+  let attrs;
+  try { attrs = await api(`/player/${state.playerId}/attributes`); } catch(e) { return main.innerHTML = '<p class="text-red-400">Error loading attributes</p>'; }
+
+  const chipClass = (v) => v >= 90 ? 'legendary' : v >= 80 ? 'elite' : v >= 70 ? 'great' : v >= 55 ? 'good' : v >= 40 ? 'avg' : 'below';
+  const attrChips = (obj) => Object.entries(obj).map(([k,v]) => {
+    const label = k.replace(/_/g, ' ').replace(/\b\w/g, c=>c.toUpperCase());
+    return `<div class="attr-chip ${chipClass(v)}"><div class="mono text-lg font-bold">${v}</div><div class="text-[10px] opacity-70">${label}</div></div>`;
+  }).join('');
+
+  main.innerHTML = `
+    <div class="space-y-5">
+      <div class="grid lg:grid-cols-2 gap-5">
+        <!-- Radar Chart -->
+        <div class="glass rounded-2xl p-5">
+          <h3 class="text-sm font-semibold text-gray-300 mb-3">🧬 Attribute Radar</h3>
+          <canvas id="radarChart"></canvas>
+        </div>
+        <!-- Static Physicals -->
+        <div class="glass rounded-2xl p-5">
+          <h3 class="text-sm font-semibold text-gray-300 mb-3">🔒 Static Physicals <span class="text-xs text-gray-600">(Immutable)</span></h3>
+          <div class="space-y-2">
+            ${Object.entries(attrs.static_physicals).map(([k,v]) => `
+              <div class="flex justify-between text-sm"><span class="text-gray-400 capitalize">${k.replace(/_/g,' ')}</span><span class="mono text-white font-semibold">${typeof v === 'number' ? (v % 1 === 0 ? v : v.toFixed(1)) : v}</span></div>
+            `).join('')}
+          </div>
+          <hr class="border-bg-border my-4">
+          <h3 class="text-sm font-semibold text-gray-300 mb-3">🧠 Mental</h3>
+          <div class="attr-grid">${attrChips(attrs.mental)}</div>
+        </div>
+      </div>
+
+      <!-- Dynamic Athleticism -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">⚡ Dynamic Athleticism <span class="text-xs text-gray-600">(Trainable, declines with age)</span></h3>
+        <div class="attr-grid">${attrChips(attrs.dynamic_athleticism)}</div>
+      </div>
+
+      <!-- Scoring -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">🎯 Scoring Offense</h3>
+        <div class="attr-grid">${attrChips(attrs.scoring)}</div>
+      </div>
+
+      <!-- Defense -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">🛡️ Defense & Rebounding</h3>
+        <div class="attr-grid">${attrChips(attrs.defense)}</div>
+      </div>
+
+      <!-- Playmaking -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">🎪 Playmaking</h3>
+        <div class="attr-grid">${attrChips(attrs.playmaking)}</div>
+      </div>
+
+      <!-- Role Selection -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">🎭 Tactical Role</h3>
+        <p class="text-xs text-gray-500 mb-3">Your on-court role determines usage rate, shot selection tendencies, and playmaking responsibilities.</p>
+        <div class="flex flex-wrap gap-2" id="role-buttons">
+          ${['Ball-Dominant Creator','Off-Ball Finisher','Rim Protector','Two-Way Wing','3-and-D Specialist','Point Forward','Stretch Big','Defensive Anchor'].map(r => `
+            <button onclick="setRole('${r}')" class="px-4 py-2 rounded-lg text-sm border transition ${state.player.role === r ? 'border-accent bg-accent/10 text-accent font-semibold' : 'border-bg-border glass-hover text-gray-400'}" data-role="${r}">${r}</button>
+          `).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  // Radar chart
+  setTimeout(() => {
+    const ctx = document.getElementById('radarChart');
+    if (!ctx) return;
+    new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels: ['Scoring','Finishing','Shooting','Playmaking','Perimeter D','Interior D','Rebounding','Athleticism','BBIQ'],
+        datasets: [{
+          label: state.player.name,
+          data: [
+            Math.round((attrs.scoring.first_step + attrs.scoring.mid_range + attrs.scoring.catch_shoot_3pt + attrs.scoring.pull_up_3pt)/4),
+            Math.round((attrs.scoring.finishing + attrs.scoring.drawing_fouls)/2),
+            Math.round((attrs.scoring.catch_shoot_3pt + attrs.scoring.pull_up_3pt + attrs.scoring.mid_range)/3),
+            Math.round((attrs.playmaking.pnr_vision + attrs.playmaking.passing_accuracy + attrs.playmaking.ball_security)/3),
+            Math.round((attrs.defense.perimeter_defense + attrs.defense.steal)/2),
+            Math.round((attrs.defense.rim_protection + attrs.defense.help_defense + attrs.defense.box_out)/3),
+            Math.round(attrs.defense.box_out),
+            Math.round((attrs.dynamic_athleticism.vertical_jump + attrs.dynamic_athleticism.speed + attrs.dynamic_athleticism.strength + attrs.dynamic_athleticism.stamina)/4),
+            attrs.mental.bbiq
+          ],
+          backgroundColor: 'rgba(245,158,11,0.15)',
+          borderColor: 'rgba(245,158,11,0.8)',
+          borderWidth: 2,
+          pointBackgroundColor: '#f59e0b',
+          pointBorderColor: '#fff',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: { r: { beginAtZero: false, min: 20, max: 99, ticks: { color: '#94a3b8', backdropColor: 'transparent', stepSize: 15, font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.08)' }, pointLabels: { color: '#cbd5e1', font: { size: 10 } } } },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }, 100);
+}
+
+async function setRole(role) {
+  try {
+    await fetch(`${API}/player/${state.playerId}/role?role=${encodeURIComponent(role)}`, { method: 'PUT' });
+    state.player.role = role;
+    switchTab('attributes');
+  } catch(e) { alert('Failed to set role: ' + e.message); }
+}
+
+// ─── SEASON ───
+async function renderSeason(main) {
+  if (!state.player) return;
+  let seasonStats, schedule, logs, summaries;
+  try {
+    [seasonStats, schedule, logs, summaries] = await Promise.all([
+      api(`/player/${state.playerId}/season-stats`),
+      api(`/season/schedule/${state.player.team_id}`),
+      api(`/game/logs/${state.playerId}?limit=15`),
+      api(`/season/summaries/${state.playerId}`)
+    ]);
+  } catch(e) { return main.innerHTML = '<p class="text-red-400">Error loading season data</p>'; }
+
+  const s = seasonStats;
+  main.innerHTML = `
+    <div class="space-y-5">
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-4">📊 Season S${state.seasonState?.current_season || 1} Averages</h3>
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-3 text-center">
+          ${statBox('PPG', s.ppg, 'accent')}
+          ${statBox('RPG', s.rpg, 'cyber')}
+          ${statBox('APG', s.apg, 'purple-400')}
+          ${statBox('SPG', s.spg, 'green-400')}
+          ${statBox('BPG', s.bpg, 'red-400')}
+          ${statBox('MPG', s.mpg, 'gray-400')}
+        </div>
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-3 text-center mt-3">
+          ${statBox('FG%', (s.fg_pct*100).toFixed(1)+'%', 'white')}
+          ${statBox('3P%', (s.tp_pct*100).toFixed(1)+'%', 'white')}
+          ${statBox('FT%', (s.ft_pct*100).toFixed(1)+'%', 'white')}
+          ${statBox('TOV', s.topg, 'gray-400')}
+          ${statBox('W', s.team_wins, 'green-400')}
+          ${statBox('L', s.team_losses, 'red-400')}
+        </div>
+      </div>
+
+      <!-- Game Log -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">📋 Recent Game Log</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead><tr class="text-gray-500 border-b border-bg-border">
+              <th class="py-2 px-1 text-left">#</th><th class="py-2 px-1">Opp</th><th class="py-2 px-1">W/L</th>
+              <th class="py-2 px-1">MIN</th><th class="py-2 px-1">PTS</th><th class="py-2 px-1">REB</th>
+              <th class="py-2 px-1">AST</th><th class="py-2 px-1">STL</th><th class="py-2 px-1">BLK</th>
+              <th class="py-2 px-1">FG</th><th class="py-2 px-1">3PT</th><th class="py-2 px-1">FT</th>
+              <th class="py-2 px-1">+/-</th>
+            </tr></thead>
+            <tbody>${logs.games.map(g => `
+              <tr class="border-b border-bg-border hover:bg-bg-hover text-center">
+                <td class="py-1.5 px-1 text-left text-gray-500">${g.game_number}</td>
+                <td class="py-1.5 px-1">${state.teams?.[g.opponent_team_id]?.abbr || 'T'+g.opponent_team_id}</td>
+                <td class="py-1.5 px-1 font-bold ${g.result==='W'?'text-green-400':'text-red-400'}">${g.result}</td>
+                <td class="py-1.5 px-1 mono">${g.minutes}</td>
+                <td class="py-1.5 px-1 font-bold text-white">${g.pts}</td>
+                <td class="py-1.5 px-1">${g.reb}</td><td class="py-1.5 px-1">${g.ast}</td>
+                <td class="py-1.5 px-1">${g.stl}</td><td class="py-1.5 px-1">${g.blk}</td>
+                <td class="py-1.5 px-1 text-gray-400">${g.fgm}/${g.fga}</td>
+                <td class="py-1.5 px-1 text-gray-400">${g.tpm}/${g.tpa}</td>
+                <td class="py-1.5 px-1 text-gray-400">${g.ftm}/${g.fta}</td>
+                <td class="py-1.5 px-1 mono ${g.plus_minus>0?'text-green-400':g.plus_minus<0?'text-red-400':'text-gray-500'}">${g.plus_minus>0?'+':''}${g.plus_minus}</td>
+              </tr>
+            `).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Season History -->
+      ${summaries.seasons.length > 0 ? `
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">📜 Season History</h3>
+        <div class="overflow-x-auto"><table class="w-full text-xs">
+          <thead><tr class="text-gray-500 border-b border-bg-border">
+            <th class="py-2 px-1">S</th><th class="py-2 px-1">Age</th><th class="py-2 px-1">G</th>
+            <th class="py-2 px-1">PPG</th><th class="py-2 px-1">RPG</th><th class="py-2 px-1">APG</th>
+            <th class="py-2 px-1">FG%</th><th class="py-2 px-1">PER</th><th class="py-2 px-1">BPM</th>
+            <th class="py-2 px-1">WS</th><th class="py-2 px-1">Record</th><th class="py-2 px-1">Playoffs</th>
+            <th class="py-2 px-1">Awards</th>
+          </tr></thead>
+          <tbody>${summaries.seasons.map(su => `
+            <tr class="border-b border-bg-border hover:bg-bg-hover text-center">
+              <td class="py-1.5 px-1 font-bold text-accent">${su.season_number}</td>
+              <td class="py-1.5 px-1">${su.age}</td><td class="py-1.5 px-1">${su.games_played}</td>
+              <td class="py-1.5 px-1 font-bold text-white">${su.ppg}</td>
+              <td class="py-1.5 px-1">${su.rpg}</td><td class="py-1.5 px-1">${su.apg}</td>
+              <td class="py-1.5 px-1">${(su.fg_pct*100).toFixed(1)}%</td>
+              <td class="py-1.5 px-1 mono">${su.per}</td><td class="py-1.5 px-1 mono">${su.bpm}</td>
+              <td class="py-1.5 px-1">${su.ws}</td>
+              <td class="py-1.5 px-1">${su.team_wins}-${su.team_losses}</td>
+              <td class="py-1.5 px-1 text-xs">${su.playoff_result || '—'}</td>
+              <td class="py-1.5 px-1 text-xs text-accent">${(JSON.parse(su.awards||'[]')).join(', ') || '—'}</td>
+            </tr>
+          `).join('')}</tbody>
+        </table></div>
+      </div>` : ''}
+
+      <!-- Actions -->
+      <div class="flex gap-3">
+        <button onclick="finalizeSeason()" class="glass glass-hover px-5 py-3 rounded-xl text-sm font-semibold text-orange-400 border border-orange-400/30">
+          ⏩ Advance to Offseason & Finalize Season
+        </button>
+      </div>
+    </div>`;
+}
+
+function statBox(label, value, colorClass) {
+  const colorMap = { accent: 'text-accent', cyber: 'text-cyber', 'purple-400': 'text-purple-400', 'green-400': 'text-green-400', 'red-400': 'text-red-400', 'gray-400': 'text-gray-400', white: 'text-white' };
+  return `<div class="glass rounded-xl p-3"><div class="text-xl font-black ${colorMap[colorClass] || 'text-white'}">${value}</div><div class="text-[10px] text-gray-500">${label}</div></div>`;
+}
+
+async function finalizeSeason() {
+  if (!confirm('Finalize the current season? This will calculate awards, apply aging, and advance to the next season.')) return;
+  try {
+    const result = await api(`/season/finalize/${state.playerId}`, { method: 'POST' });
+    await refreshState();
+    await refreshPlayer();
+    alert(`Season finalized!\nAwards: ${result.awards.join(', ') || 'None'}\nPlayoffs: ${result.playoff_result || 'Missed'}`);
+    switchTab('season');
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+// ─── GAME SIM ───
+async function renderGame(main) {
+  if (!state.player) return;
+  await refreshPlayer();
+
+  let gameResult = state._lastGame || null;
+
+  main.innerHTML = `
+    <div class="space-y-5">
+      <!-- Sim Panel -->
+      <div class="glass rounded-2xl p-6 text-center glow-orange">
+        <h3 class="text-lg font-bold mb-2">🏟️ Simulate Game</h3>
+        <p class="text-sm text-gray-400 mb-4">Season ${state.seasonState?.current_season||1} · Game ${(state.seasonState?.games_played_in_season||0)+1}/82</p>
+        <div class="flex items-center justify-center gap-6 mb-5">
+          <div class="text-center">
+            <div class="text-sm font-semibold text-white">${state.player.team_name}</div>
+            <div class="text-xs text-gray-500">${state.player.role}</div>
+            <div class="text-xs mt-1 ${state.player.hot_streak > 0 ? 'text-orange-400' : state.player.cold_streak < 0 ? 'text-blue-400' : 'text-gray-500'}">
+              ${state.player.hot_streak > 0 ? '🔥 Hot Streak' : state.player.cold_streak < 0 ? '❄️ Cold Streak' : ''}
+            </div>
+          </div>
+          <span class="text-2xl font-black text-gray-600">VS</span>
+          <div class="text-center">
+            <select id="game-opponent" class="bg-bg border border-bg-border rounded-lg px-3 py-2 text-sm text-white focus:border-accent">
+              <option value="">🎲 Random Opponent</option>
+              ${state.teams ? Object.entries(state.teams).map(([id,t]) => `<option value="${id}">${t.name} (${t.overall})</option>`).join('') : ''}
+            </select>
+          </div>
+        </div>
+        <div class="flex gap-3 justify-center flex-wrap">
+          <button onclick="simGame()" class="bg-accent hover:bg-amber-500 text-black font-bold px-8 py-3 rounded-xl transition text-lg" id="btn-sim-game">
+            🏀 Simulate Game
+          </button>
+          <button onclick="simBatchGames()" class="glass glass-hover text-white px-6 py-3 rounded-xl transition text-sm">
+            ⚡ Quick Sim 5
+          </button>
+          <button onclick="simBatchGames(10)" class="glass glass-hover text-white px-6 py-3 rounded-xl transition text-sm">
+            ⚡ Quick Sim 10
+          </button>
+        </div>
+        <label class="flex items-center justify-center gap-2 mt-3 text-sm text-gray-400 cursor-pointer">
+          <input type="checkbox" id="load-mgmt" ${state.player.load_management ? 'checked' : ''} onchange="toggleLoadMgmt(this.checked)">
+          Load Management (reduced minutes, less fatigue)
+        </label>
+      </div>
+
+      <!-- Last Game Result -->
+      <div id="game-result-container">
+        ${gameResult ? renderGameResult(gameResult) : '<div class="glass rounded-2xl p-8 text-center text-gray-500">Simulate a game to see results here</div>'}
+      </div>
+    </div>`;
+}
+
+function renderGameResult(r) {
+  const adv = r.advanced || {};
+  const box = r.box_score || {};
+  const injury = r.injury;
+  return `
+    <div class="glass rounded-2xl p-5 fade-in glow-cyan">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold">Game ${r.game_number}: vs ${r.opponent}</h3>
+        <span class="text-2xl font-black ${r.result === 'W' ? 'text-green-400' : 'text-red-400'}">${r.result}</span>
+      </div>
+      <div class="text-center mb-4">
+        <span class="text-3xl font-black text-white">${r.team_score} - ${r.opponent_score}</span>
+      </div>
+      <div class="grid grid-cols-3 md:grid-cols-6 gap-3 text-center mb-4">
+        ${statBox('MIN', r.minutes, 'white')}
+        ${statBox('PTS', box.pts, 'accent')}
+        ${statBox('REB', box.reb, 'cyber')}
+        ${statBox('AST', box.ast, 'purple-400')}
+        ${statBox('STL', box.stl, 'green-400')}
+        ${statBox('BLK', box.blk, 'red-400')}
+      </div>
+      <div class="grid grid-cols-4 gap-2 text-center text-xs text-gray-400 mb-4">
+        <div>FG: <span class="text-white font-semibold">${box.fgm}/${box.fga}</span></div>
+        <div>3PT: <span class="text-white font-semibold">${box.tpm}/${box.tpa}</span></div>
+        <div>FT: <span class="text-white font-semibold">${box.ftm}/${box.fta}</span></div>
+        <div>TOV: <span class="text-white font-semibold">${box.tov}</span></div>
+      </div>
+      <div class="grid grid-cols-3 gap-3 text-center">
+        ${statBox('PER', adv.per, 'accent')}
+        ${statBox('TS%', (adv.ts_pct*100).toFixed(1)+'%', 'white')}
+        ${statBox('USG%', adv.usg_pct+'%', 'white')}
+      </div>
+      ${injury ? `<div class="mt-4 p-3 rounded-lg bg-red-400/10 border border-red-400/30 text-red-400 text-sm">🏥 <b>INJURY:</b> ${injury.type} — out ${injury.games} games</div>` : ''}
+      <button onclick="switchTab('game')" class="mt-4 text-xs text-gray-500 hover:text-gray-300">🔄 Sim Another Game</button>
+    </div>`;
+}
+
+async function simGame() {
+  const btn = document.getElementById('btn-sim-game');
+  btn.disabled = true; btn.textContent = 'Simulating...';
+  try {
+    const oppId = document.getElementById('game-opponent')?.value || '';
+    let url = `${API}/game/simulate/${state.playerId}`;
+    if (oppId) url += `?opponent_id=${oppId}`;
+    const result = await fetch(url, { method: 'POST' }).then(r => r.json());
+    state._lastGame = result;
+    await refreshPlayer();
+    document.getElementById('game-result-container').innerHTML = renderGameResult(result);
+  } catch(e) { alert('Simulation failed: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = '🏀 Simulate Game'; }
+}
+
+async function simBatchGames(count=5) {
+  const btn = document.getElementById('btn-sim-game');
+  btn.disabled = true; btn.textContent = `Simulating ${count} games...`;
+  try {
+    const result = await api(`/game/simulate-batch/${state.playerId}?count=${count}`, { method: 'POST' });
+    state._lastGame = result.games[result.games.length - 1];
+    await refreshPlayer();
+    const summaries = result.games.map(g =>
+      `${g.result} ${g.team_score}-${g.opponent_score} | ${g.box_score.pts}pts/${g.box_score.reb}reb/${g.box_score.ast}ast in ${g.minutes}min`
+    ).join('<br>');
+    document.getElementById('game-result-container').innerHTML = `
+      <div class="glass rounded-2xl p-5 fade-in">
+        <h3 class="text-lg font-bold mb-2">📊 Batch Results (${count} games)</h3>
+        <div class="text-xs mono text-gray-400 mb-4">${summaries}</div>
+        ${renderGameResult(state._lastGame)}
+      </div>`;
+  } catch(e) { alert('Batch sim failed: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = '🏀 Simulate Game'; }
+}
+
+async function toggleLoadMgmt(val) {
+  await fetch(`${API}/player/${state.playerId}/load-management?enabled=${val}`, { method: 'PUT' });
+  state.player.load_management = val;
+}
+
+// ─── TRAINING ───
+async function renderTraining(main) {
+  if (!state.player) return;
+  await refreshPlayer();
+  const programs = state.trainingPrograms?.programs || {};
+
+  main.innerHTML = `
+    <div class="space-y-5">
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-lg font-bold mb-2">💪 Offseason Training</h3>
+        <p class="text-sm text-gray-400 mb-4">Available during offseason. Choose one program to focus on. Training effectiveness decreases with age.</p>
+        <p class="text-xs text-gray-500 mb-4">Current Age: <b class="text-white">${state.player.age}</b> · Work Ethic: <b class="text-white">${state.player.work_ethic}</b> · Training Multiplier: <b class="text-white">${state.player.age < 22 ? '1.3x (Young)' : state.player.age < 26 ? '1.1x (Prime Dev)' : state.player.age < 30 ? '0.9x (Peak)' : state.player.age < 33 ? '0.65x (Veteran)' : '0.35x (Declining)'}</b></p>
+      </div>
+      <div class="grid md:grid-cols-2 gap-3" id="training-programs">
+        ${Object.entries(programs).map(([name, prog]) => `
+          <div class="glass glass-hover rounded-xl p-4 cursor-pointer" onclick="applyTraining('${name}')">
+            <div class="flex justify-between items-start">
+              <h4 class="font-bold text-white">${name}</h4>
+              <span class="text-xs px-2 py-1 rounded-full ${prog.injury_risk > 3 ? 'bg-red-400/10 text-red-400' : prog.injury_risk > 1 ? 'bg-yellow-400/10 text-yellow-400' : 'bg-green-400/10 text-green-400'}">Risk: ${prog.injury_risk}/10</span>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">${prog.description}</p>
+            <div class="flex gap-1 mt-2 flex-wrap">
+              ${prog.primary.map(a => `<span class="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent">${a.replace(/_/g,' ')}</span>`).join('')}
+              ${prog.secondary.map(a => `<span class="text-[10px] px-1.5 py-0.5 rounded bg-cyber/10 text-cyber">${a.replace(/_/g,' ')}</span>`).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div id="training-result"></div>
+    </div>`;
+}
+
+async function applyTraining(program) {
+  if (!confirm(`Apply "${program}" training program? This consumes the offseason training slot.`)) return;
+  try {
+    const result = await api(`/training/apply/${state.playerId}?program=${encodeURIComponent(program)}`, { method: 'POST' });
+    let html = '<div class="glass rounded-2xl p-5 fade-in border border-accent/30"><h3 class="font-bold text-accent mb-2">✅ Training Complete!</h3><div class="grid grid-cols-2 gap-1 text-sm">';
+    for (const [attr, data] of Object.entries(result.gains)) {
+      html += `<div><span class="text-gray-400">${attr.replace(/_/g,' ')}:</span> <span class="text-white">${data.before} → <b class="text-green-400">${data.after}</b> (+${data.gain})</span></div>`;
+    }
+    html += `</div><p class="text-sm text-gray-400 mt-2">Fatigue cleared: <b class="text-green-400">-${result.fatigue_cleared.toFixed(1)}</b></p>`;
+    if (result.injury_occurred) html += `<p class="text-red-400 text-sm mt-1">🏥 Training injury: ${result.injuries[0]?.type} (${result.injuries[0]?.games_missed} games)</p>`;
+    html += '</div>';
+    document.getElementById('training-result').innerHTML = html;
+    await refreshPlayer();
+  } catch(e) { alert('Training failed: ' + e.message); }
+}
+
+// ─── CAREER ───
+async function renderCareer(main) {
+  if (!state.player) return;
+  let career;
+  try { career = await api(`/career/${state.playerId}`); } catch(e) { return main.innerHTML = '<p class="text-red-400">Error loading career</p>'; }
+
+  const c = career;
+  const goatPct = c.goat_score || 0;
+
+  main.innerHTML = `
+    <div class="space-y-5">
+      <!-- GOAT Tracker -->
+      <div class="glass rounded-2xl p-6 glow-orange text-center">
+        <h3 class="text-sm font-semibold text-gray-400 mono uppercase tracking-wider mb-2">🐐 G.O.A.T. Tracker</h3>
+        <div class="text-5xl font-black text-accent mb-1">${goatPct.toFixed(1)}%</div>
+        <div class="stat-bar-bg rounded-full h-4 overflow-hidden max-w-md mx-auto mb-2">
+          <div class="stat-bar-orange h-full transition-all" style="width:${Math.min(100,goatPct)}%"></div>
+        </div>
+        <p class="text-xs text-gray-500">All-Time Great Progress</p>
+        <div class="grid grid-cols-4 gap-4 mt-4 max-w-md mx-auto text-center">
+          <div><div class="text-2xl font-black text-accent">${c.championships||0}</div><div class="text-[10px] text-gray-500">🏆 Rings</div></div>
+          <div><div class="text-2xl font-black text-accent">${c.mvps||0}</div><div class="text-[10px] text-gray-500">🏅 MVPs</div></div>
+          <div><div class="text-2xl font-black text-accent">${c.all_nba||0}</div><div class="text-[10px] text-gray-500">⭐ All-NBA</div></div>
+          <div><div class="text-2xl font-black text-accent">${c.career_totals?.games||0}</div><div class="text-[10px] text-gray-500">📊 Games</div></div>
+        </div>
+      </div>
+
+      <!-- Career Totals -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">📊 Career Totals</h3>
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-3 text-center">
+          ${statBox('Games', c.career_totals?.games||0, 'white')}
+          ${statBox('Points', (c.career_totals?.pts||0).toLocaleString(), 'accent')}
+          ${statBox('Rebounds', (c.career_totals?.reb||0).toLocaleString(), 'cyber')}
+          ${statBox('Assists', (c.career_totals?.ast||0).toLocaleString(), 'purple-400')}
+          ${statBox('PPG Avg', c.seasons?.length ? (c.career_totals.pts / Math.max(1, c.career_totals.games)).toFixed(1) : '—', 'accent')}
+          ${statBox('Seasons', c.seasons?.length||0, 'white')}
+        </div>
+      </div>
+
+      <!-- Awards Showcase -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">🏅 Awards Collection</h3>
+        <div class="flex flex-wrap gap-2" id="awards-list">
+          ${c.awards?.length ? c.awards.map(a => `<span class="px-3 py-1.5 rounded-full text-xs font-semibold bg-accent/10 text-accent border border-accent/30">S${a.season_number}: ${a.award_name}</span>`).join('') : '<span class="text-gray-500 text-sm">No awards yet. Keep grinding!</span>'}
+        </div>
+      </div>
+
+      <!-- Season Summaries -->
+      ${c.seasons?.length ? `
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">📜 Season History</h3>
+        <div class="overflow-x-auto"><table class="w-full text-xs">
+          <thead><tr class="text-gray-500 border-b border-bg-border">
+            <th class="py-2 px-1">S</th><th class="py-2 px-1">Team</th><th class="py-2 px-1">Age</th><th class="py-2 px-1">G</th>
+            <th class="py-2 px-1">PPG</th><th class="py-2 px-1">RPG</th><th class="py-2 px-1">APG</th>
+            <th class="py-2 px-1">PER</th><th class="py-2 px-1">BPM</th><th class="py-2 px-1">WS</th>
+            <th class="py-2 px-1">Playoffs</th><th class="py-2 px-1">Awards</th>
+          </tr></thead>
+          <tbody>${c.seasons.map(su => `
+            <tr class="border-b border-bg-border hover:bg-bg-hover text-center">
+              <td class="py-1.5 px-1 font-bold text-accent">${su.season_number}</td>
+              <td class="py-1.5 px-1">${state.teams?.[su.team_id]?.abbr || 'T'+su.team_id}</td>
+              <td class="py-1.5 px-1">${su.age}</td><td class="py-1.5 px-1">${su.games_played}</td>
+              <td class="py-1.5 px-1 font-bold text-white">${su.ppg}</td>
+              <td class="py-1.5 px-1">${su.rpg}</td><td class="py-1.5 px-1">${su.apg}</td>
+              <td class="py-1.5 px-1 mono">${su.per}</td><td class="py-1.5 px-1 mono">${su.bpm}</td>
+              <td class="py-1.5 px-1">${su.ws}</td>
+              <td class="py-1.5 px-1 text-xs">${su.playoff_result || '—'}</td>
+              <td class="py-1.5 px-1 text-xs text-accent">${(JSON.parse(su.awards||'[]')).join(', ') || '—'}</td>
+            </tr>
+          `).join('')}</tbody>
+        </table></div>
+      </div>` : ''}
+    </div>`;
+}
+
+// ─── OFF-COURT ───
+async function renderOffCourt(main) {
+  if (!state.player) return;
+
+  main.innerHTML = `
+    <div class="space-y-5">
+      <!-- Media -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">🎤 Media Interaction</h3>
+        <div id="media-panel"><p class="text-gray-500 text-sm">Loading scenario...</p></div>
+      </div>
+
+      <!-- Endorsements -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">💰 Endorsements</h3>
+        <p class="text-xs text-gray-500 mb-3">Your brand value is driven by performance and fan base.</p>
+        <div id="endorsement-offers"><button onclick="loadEndorsements()" class="text-accent text-sm hover:underline">🔍 Check for endorsement offers</button></div>
+        <div id="active-endorsements" class="mt-4"></div>
+      </div>
+
+      <!-- Investments -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">📈 Investments</h3>
+        <p class="text-xs text-gray-500 mb-3">Current wealth: <b class="text-accent">$${state.player.wealth?.toFixed(2) || '0.00'}M</b></p>
+        <form id="invest-form" class="flex gap-2 mb-4">
+          <input type="text" id="inv-name" placeholder="Investment name" class="flex-1 bg-bg border border-bg-border rounded-lg px-3 py-2 text-sm text-white focus:border-accent outline-none">
+          <input type="number" id="inv-amount" placeholder="Amount ($M)" step="0.1" min="0.1" class="w-32 bg-bg border border-bg-border rounded-lg px-3 py-2 text-sm text-white focus:border-accent outline-none">
+          <select id="inv-risk" class="bg-bg border border-bg-border rounded-lg px-3 py-2 text-sm text-white">
+            <option value="Low">Low Risk</option>
+            <option value="Medium" selected>Medium Risk</option>
+            <option value="High">High Risk</option>
+          </select>
+          <button type="submit" class="bg-accent hover:bg-amber-500 text-black font-bold px-4 py-2 rounded-lg text-sm transition">Invest</button>
+        </form>
+        <div id="investments-list"></div>
+      </div>
+
+      <!-- Clout Actions -->
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">👑 Clout Actions <span class="text-xs text-gray-600">(Clout: ${state.player.clout?.toFixed(0)})</span></h3>
+        <div class="grid grid-cols-2 gap-3">
+          <button onclick="cloutTrade()" class="glass glass-hover p-4 rounded-xl text-sm text-left">
+            <span class="text-lg">🔄</span>
+            <p class="font-semibold text-white">Demand Trade</p>
+            <p class="text-xs text-gray-500">Cost: 15 clout. Need 30+ clout.</p>
+          </button>
+          <button onclick="cloutCoach()" class="glass glass-hover p-4 rounded-xl text-sm text-left">
+            <span class="text-lg">👔</span>
+            <p class="font-semibold text-white">Push Coaching Change</p>
+            <p class="text-xs text-gray-500">Cost: 20 clout. Need 50+ clout.</p>
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  // Load media scenario
+  try {
+    const media = await api(`/media/scenario/${state.playerId}`);
+    const s = media.scenario;
+    document.getElementById('media-panel').innerHTML = `
+      <p class="text-white font-medium mb-3">"${s.question}"</p>
+      <div class="space-y-2">
+        ${s.choices.map((c,i) => `
+          <button onclick="respondMedia('${s.id}',${i})" class="w-full text-left glass glass-hover p-3 rounded-lg text-sm">
+            <span class="text-white">${c.text}</span>
+            <span class="text-xs text-gray-500 ml-2">[${c.tone}] Fan:${c.fan>=0?'+':''}${c.fan} Clout:${c.clout>=0?'+':''}${c.clout}</span>
+          </button>
+        `).join('')}
+      </div>`;
+  } catch(e) { document.getElementById('media-panel').innerHTML = '<p class="text-gray-500">No media scenarios available right now.</p>'; }
+
+  loadEndorsements();
+  loadInvestments();
+}
+
+async function respondMedia(scenarioId, choiceIdx) {
+  try {
+    const result = await api(`/media/respond/${state.playerId}?scenario_id=${scenarioId}&choice_index=${choiceIdx}`, { method: 'POST' });
+    alert(`Choice made!\nFan change: ${result.effects.fan_base_change >= 0 ? '+' : ''}${result.effects.fan_base_change}\nClout change: ${result.effects.clout_change >= 0 ? '+' : ''}${result.effects.clout_change}`);
+    await refreshPlayer();
+    switchTab('offcourt');
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function loadEndorsements() {
+  try {
+    const offers = await api(`/economy/endorsements/${state.playerId}`);
+    const active = await api(`/economy/endorsements-active/${state.playerId}`);
+    const offersHtml = offers.offers?.length ? offers.offers.map(o => `
+      <div class="flex items-center justify-between glass p-3 rounded-lg mb-2">
+        <div><span class="text-white font-semibold">${o.brand}</span><span class="text-xs text-gray-500 ml-2">Prestige: ${o.prestige}</span></div>
+        <div class="flex items-center gap-3">
+          <span class="text-sm text-green-400 mono">$${o.annual_value}M/yr × ${o.years}y</span>
+          <button onclick="signEndorsement('${o.brand}',${o.annual_value},${o.years})" class="text-xs bg-accent text-black px-3 py-1 rounded font-bold">Sign</button>
+        </div>
+      </div>`).join('') : '<p class="text-gray-500 text-sm">No endorsement offers available right now. Build your fame!</p>';
+    document.getElementById('endorsement-offers').innerHTML = offersHtml;
+    document.getElementById('active-endorsements').innerHTML = active.endorsements?.length ? `<h4 class="text-xs font-semibold text-gray-400 mb-2">Active Deals:</h4>` + active.endorsements.map(e => `
+      <div class="text-xs text-gray-400">${e.brand_name}: $${e.annual_value}M/yr (${e.years_remaining}y left)</div>`).join('') : '';
+  } catch(e) { console.warn('Endorsements:', e); }
+}
+
+async function signEndorsement(brand, value, years) {
+  try {
+    await api(`/economy/sign-endorsement/${state.playerId}?brand=${encodeURIComponent(brand)}&annual_value=${value}&years=${years}`, { method: 'POST' });
+    await refreshPlayer();
+    loadEndorsements();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function loadInvestments() {
+  try {
+    const inv = await api(`/economy/investments/${state.playerId}`);
+    document.getElementById('investments-list').innerHTML = inv.investments?.length ? inv.investments.map(i => `
+      <div class="flex justify-between text-sm py-1 border-b border-bg-border">
+        <span class="text-white">${i.name}</span>
+        <span class="text-gray-400">$${i.amount_invested}M → <span class="${i.current_value >= i.amount_invested ? 'text-green-400' : 'text-red-400'}">$${i.current_value?.toFixed(2)}M</span> (${(i.annual_return*100).toFixed(1)}% APR)</span>
+      </div>`).join('') : '<p class="text-gray-500 text-sm">No investments yet.</p>';
+  } catch(e) {}
+}
+
+document.addEventListener('submit', async (e) => {
+  if (e.target.id === 'invest-form') {
+    e.preventDefault();
+    const name = document.getElementById('inv-name').value.trim();
+    const amount = parseFloat(document.getElementById('inv-amount').value);
+    const risk = document.getElementById('inv-risk').value;
+    if (!name || !amount) return alert('Fill all fields');
+    try {
+      await api(`/economy/invest/${state.playerId}?name=${encodeURIComponent(name)}&amount=${amount}&risk=${risk}`, { method: 'POST' });
+      await refreshPlayer();
+      loadInvestments();
+      e.target.reset();
+    } catch(err) { alert('Investment failed: ' + err.message); }
+  }
+});
+
+async function cloutTrade() {
+  if (!state.player) return;
+  const teamsList = state.teams ? Object.entries(state.teams).map(([id,t]) => `${id}: ${t.name}`).join('\n') : '';
+  const teamId = prompt(`Enter desired team ID:\n\n${teamsList}`);
+  if (!teamId) return;
+  try {
+    const result = await api(`/clout/request-trade/${state.playerId}?desired_team_id=${teamId}`, { method: 'POST' });
+    alert(result.message);
+    await refreshPlayer();
+    switchTab('offcourt');
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function cloutCoach() {
+  if (!state.player) return;
+  try {
+    const result = await api(`/clout/coaching-change/${state.playerId}`, { method: 'POST' });
+    alert(result.message);
+    await refreshPlayer();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+// ─── LEAGUE ───
+async function renderLeague(main) {
+  main.innerHTML = `<div class="glass rounded-2xl p-5"><h3 class="text-sm font-semibold text-gray-300 mb-3">🌐 League Standings</h3><div id="standings-container">Loading...</div></div>
+  <div class="glass rounded-2xl p-5 mt-5"><h3 class="text-sm font-semibold text-gray-300 mb-3">🏀 Team Power Rankings</h3><div id="teams-container">Loading...</div></div>`;
+
+  try {
+    const standings = await api('/league/standings');
+    const renderConf = (conf, title) => `
+      <h4 class="text-xs font-semibold text-gray-400 mt-3 mb-1">${title}</h4>
+      <div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-gray-500 border-b border-bg-border">
+        <th class="py-1 px-1 text-left">#</th><th class="py-1 px-1 text-left">Team</th><th class="py-1 px-1">W</th><th class="py-1 px-1">L</th><th class="py-1 px-1">PCT</th><th class="py-1 px-1">OVR</th>
+      </tr></thead><tbody>${conf.map((t,i) => `
+        <tr class="border-b border-bg-border hover:bg-bg-hover ${t.team_id === state.player?.team_id ? 'bg-accent/5' : ''}">
+          <td class="py-1 px-1 text-gray-500">${i+1}</td><td class="py-1 px-1 font-semibold ${t.team_id === state.player?.team_id ? 'text-accent' : 'text-white'}">${t.name} ${t.team_id === state.player?.team_id ? '⭐' : ''}</td>
+          <td class="py-1 px-1 text-center">${t.wins}</td><td class="py-1 px-1 text-center">${t.losses}</td>
+          <td class="py-1 px-1 text-center mono">${(t.wins/82).toFixed(3)}</td>
+          <td class="py-1 px-1 text-center"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${t.overall>=90?'bg-purple-400/10 text-purple-400':t.overall>=80?'bg-cyber/10 text-cyber':t.overall>=70?'bg-gray-400/10 text-gray-400':'bg-red-400/10 text-red-400'}">${t.overall}</span></td>
+        </tr>
+      `).join('')}</tbody></table></div>`;
+    document.getElementById('standings-container').innerHTML = renderConf(standings.east, 'EASTERN CONFERENCE') + renderConf(standings.west, 'WESTERN CONFERENCE');
+  } catch(e) { document.getElementById('standings-container').innerHTML = '<p class="text-red-400">Failed to load standings</p>'; }
+
+  try {
+    const teams = await api('/teams');
+    document.getElementById('teams-container').innerHTML = `<div class="grid grid-cols-2 md:grid-cols-5 gap-2">${Object.entries(teams.teams).sort((a,b) => b[1].overall - a[1].overall).map(([id,t]) => `
+      <div class="glass rounded-lg p-2.5 text-center ${parseInt(id) === state.player?.team_id ? 'border border-accent/30' : ''}">
+        <div class="font-semibold text-xs text-white">${t.name}</div>
+        <div class="text-[10px] text-gray-500">${t.conference}</div>
+        <span class="text-[10px] px-1.5 py-0.5 rounded mt-1 inline-block font-bold ${t.overall>=90?'bg-purple-400/10 text-purple-400':t.overall>=80?'bg-cyber/10 text-cyber':t.overall>=70?'bg-gray-400/10 text-gray-400':'bg-red-400/10 text-red-400'}">OVR ${t.overall}</span>
+      </div>
+    `).join('')}</div>`;
+  } catch(e) {}
+}
+
+// ─── SAVE/LOAD ───
+async function renderSaves(main) {
+  main.innerHTML = `
+    <div class="space-y-5">
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">💾 Save Game</h3>
+        <form id="save-form" class="flex gap-2">
+          <input type="text" id="save-name" placeholder="Save name" required class="flex-1 bg-bg border border-bg-border rounded-lg px-3 py-2 text-sm text-white focus:border-accent outline-none">
+          <input type="text" id="save-desc" placeholder="Description (optional)" class="flex-1 bg-bg border border-bg-border rounded-lg px-3 py-2 text-sm text-white focus:border-accent outline-none">
+          <button type="submit" class="bg-accent hover:bg-amber-500 text-black font-bold px-5 py-2 rounded-lg text-sm">Save</button>
+        </form>
+      </div>
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">📂 Saved Games</h3>
+        <div id="saves-list">Loading...</div>
+      </div>
+      <div class="glass rounded-2xl p-5">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">📤 Export Career Data</h3>
+        <button onclick="exportCareer()" class="glass glass-hover px-4 py-2 rounded-lg text-sm text-cyber">📥 Export Full Career JSON</button>
+      </div>
+    </div>`;
+
+  loadSaves();
+
+  document.getElementById('save-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('save-name').value.trim();
+    const desc = document.getElementById('save-desc').value.trim();
+    if (!name) return;
+    try {
+      const result = await api(`/save/${state.playerId}?save_name=${encodeURIComponent(name)}&description=${encodeURIComponent(desc)}`, { method: 'POST' });
+      alert(`Saved! Season ${result.season}, Phase: ${result.phase}`);
+      loadSaves();
+    } catch(err) { alert('Save failed: ' + err.message); }
+  });
+}
+
+async function loadSaves() {
+  try {
+    const saves = await api(`/saves/${state.playerId}`);
+    document.getElementById('saves-list').innerHTML = saves.saves?.length ? saves.saves.map(s => `
+      <div class="flex justify-between items-center glass p-3 rounded-lg mb-2">
+        <div><span class="text-white font-semibold">${s.save_name}</span><span class="text-xs text-gray-500 ml-2">S${s.season_number} · ${s.description}</span></div>
+        <span class="text-xs text-gray-500 mono">${new Date(s.created_at).toLocaleDateString()}</span>
+      </div>`).join('') : '<p class="text-gray-500 text-sm">No saves yet.</p>';
+  } catch(e) {}
+}
+
+async function exportCareer() {
+  try {
+    const data = await api(`/career/export/${state.playerId}`);
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `${state.player.name.replace(/\s/g,'_')}_career.json`; a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) { alert('Export failed: ' + e.message); }
+}
+
+// ─── HELPERS ───
+async function refreshPlayer() {
+  if (!state.playerId) return;
+  try {
+    const data = await api(`/player/${state.playerId}`);
+    state.player = data.player;
+    updateHeader();
+  } catch(e) { console.warn('Refresh player failed:', e); }
+}
+
+async function refreshState() {
+  try { state.seasonState = await api('/season/state'); } catch(e) {}
+  updateHeader();
+}
+
+// ─── STARTUP ───
+init();
+</script>
+</body>
+</html>
